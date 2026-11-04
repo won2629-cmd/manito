@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>오레오반 마니또</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root{--cookie:#2B2230;--cream:#FFF3D6;--sky:#EAF1FB;--blue:#3F6FD8;--line:#CFD8E8;--red:#C0392B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--sky);color:var(--cookie);font:16px/1.65 "Gowun Dodum",sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+h1,h2,h3{font-family:Jua,sans-serif;font-weight:400;margin:0 0 8px}
+h1{font-size:30px}h2{font-size:22px;margin-top:28px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.box{background:#fff;border:2px solid var(--line);border-radius:14px;padding:16px;margin-top:12px}
+input,select,textarea,button{font:inherit;border-radius:10px}
+input,select,textarea{width:100%;padding:10px;border:2px solid var(--line);background:#fff;color:var(--cookie);margin:6px 0}
+textarea{min-height:110px;resize:vertical}
+button{border:0;background:var(--cookie);color:#fff;padding:10px 16px;cursor:pointer;min-height:44px}
+button.sub{background:#fff;color:var(--cookie);border:2px solid var(--cookie)}
+button.sm{min-height:34px;padding:4px 10px;font-size:14px}
+button.warn{background:var(--red)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:#6B6475;font-size:14px}
+.err{color:var(--red);min-height:24px}
+.cookie{margin-top:12px;text-align:center}
+.cookie .c{background:var(--cookie);color:#fff;height:34px;border-radius:40px 40px 10px 10px}
+.cookie .c.b{border-radius:10px 10px 40px 40px}
+.cookie .f{background:var(--cream);padding:18px 10px;font-family:Jua,sans-serif;font-size:32px;border-left:2px solid var(--cookie);border-right:2px solid var(--cookie)}
+.cookie .f small{display:block;font:14px "Gowun Dodum",sans-serif;color:#6B6475}
+.log{border-top:1px solid var(--line);padding:10px 0;white-space:pre-wrap}
+.log b{font-size:14px;color:var(--blue)}
+.heart{background:var(--cream);border-radius:12px;padding:10px 12px;margin-top:8px;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left}
+details{margin-top:4px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ===== 설정: 아래 두 가지를 바꿔 주세요 ===== */
+const FIREBASE_CONFIG = {
+  apiKey: "여기에_apiKey",
+  authDomain: "여기에.firebaseapp.com",
+  databaseURL: "https://여기에-default-rtdb.firebaseio.com",
+  projectId: "여기에_projectId"
+};
+const TEACHER_PW = "teacher1234";
+/* ======================================== */
+
+const NAMES = ["파하드","공도호","김수아","서주아","서태민","손승범","송윤우","원도경","유이안","유한결","이도윤","이서율","이소희","이준희","임지아","전지원","정서윤","정한나","조해린","최연우","최예림","하태경","한선규","이아진"];
+
+const DEMO = FIREBASE_CONFIG.apiKey.startsWith("여기에");
+function demoRef() {
+  let data = {}, cb = null;
+  const snap = () => ({ val: () => JSON.parse(JSON.stringify(data)) });
+  const put = (path, val) => {
+    const ks = path.split("/").filter(Boolean);
+    let o = data;
+    ks.slice(0, -1).forEach(k => { if (!o[k] || typeof o[k] !== "object") o[k] = {}; o = o[k]; });
+    if (val === null || val === undefined) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = val;
+    if (cb) cb(snap());
+  };
+  const ref = base => ({
+    on: (e, f) => { cb = f; f(snap()); },
+    child: p => ref(base + "/" + p),
+    set: v => put(base, v),
+    remove: () => put(base, null),
+    push: v => put(base + "/k" + Date.now() + Math.random().toString(36).slice(2, 5), v),
+    update: o => Object.entries(o).forEach(([k, v]) => put(base + "/" + k, v))
+  });
+  return ref("");
+}
+const R = DEMO ? demoRef() : (firebase.initializeApp(FIREBASE_CONFIG), firebase.database().ref("manito"));
+let S = {}, me = null, isTeacher = false, showTarget = false, msg = "";
+const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+let draft = { d: today(), t: "", h: "" };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const A = () => S.assign || {};
+const logsOf = n => Object.entries((S.logs || {})[n] || {}).map(([k, v]) => ({ k, ...v })).sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.k < b.k ? -1 : 1);
+const giverOf = n => Object.keys(A()).find(g => A()[g] === n);
+
+R.on("value", s => { S = s.val() || {}; render(); });
+
+function render() {
+  const a = $("app");
+  a.innerHTML = (DEMO ? `<p class="muted">체험 모드예요. Firebase를 연결하기 전이라 새로고침하면 데이터가 사라져요.</p>` : "") + (isTeacher ? teacherView() : me ? studentView() : loginView());
+  const t = $("dt"); if (t) t.value = draft.t;
+  const h = $("dh"); if (h) h.value = draft.h;
+}
+
+function loginView() {
+  return `<h1>오레오반 마니또</h1>
+  <p class="muted">이름을 고르고 비밀번호 4자리를 입력하세요. 처음이면 입력한 숫자가 내 비밀번호가 돼요.</p>
+  <div class="box">
+    <label for="nm">내 이름</label>
+    <select id="nm"><option value="">선택하세요</option>${NAMES.map(n => `<option>${n}</option>`).join("")}</select>
+    <label for="pw">비밀번호 4자리</label>
+    <input id="pw" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+    <div class="err" role="alert">${esc(msg)}</div>
+    <div class="row"><button onclick="login()">입장하기</button><button class="sub" onclick="tLogin()">선생님</button></div>
+  </div>`;
+}
+
+function login() {
+  const n = $("nm").value, p = $("pw").value;
+  if (!n) { msg = "이름을 선택하세요."; return render(); }
+  if (!/^\d{4}$/.test(p)) { msg = "숫자 4자리를 입력하세요."; return render(); }
+  const saved = (S.pw || {})[n];
+  if (!saved) {
+    if (!confirm(`${n}, 이 숫자로 비밀번호를 만들까요?\n잊지 않게 기억해 두세요.`)) return;
+    R.child("pw/" + n).set(p);
+  } else if (saved !== p) { msg = "비밀번호가 달라요. 기억나지 않으면 선생님께 말씀드리세요."; return render(); }
+  me = n; msg = ""; showTarget = false; render();
+}
+function tLogin() {
+  const p = prompt("선생님 비밀번호");
+  if (p === TEACHER_PW) { isTeacher = true; render(); } else if (p !== null) alert("비밀번호가 달라요.");
+}
+function out() { me = null; isTeacher = false; msg = ""; render(); }
+
+function studentView() {
+  const target = A()[me], revealed = S.revealed === true, mine = logsOf(me);
+  let h = `<div class="top"><h1>${esc(me)}의 마니또</h1><button class="sub sm" onclick="out()">나가기</button></div>`;
+  if (!target) return h + `<div class="box">아직 마니또 뽑기 전이에요. 선생님이 배정하면 여기에 나타나요.</div>`;
+  h += `<div class="cookie"><div class="c"></div><div class="f">${showTarget ? esc(target) : "?"}<small>${showTarget ? "내가 몰래 챙길 친구" : "내가 몰래 챙길 친구를 확인하세요"}</small></div><div class="c b"></div></div>
+  <div class="row" style="margin-top:10px"><button class="sub" onclick="showTarget=!showTarget;render()">${showTarget ? "가리기" : "확인하기"}</button></div>
+  <p class="muted">내 마니또 대상은 나와 선생님만 알아요. 옆 친구가 보지 못하게 조심하세요.</p>
+  <h2>오늘의 마음 기록</h2>
+  <div class="box">
+    <label for="dd">날짜</label><input id="dd" type="date" value="${draft.d}" oninput="draft.d=this.value">
+    <label for="dt">${esc(target)}에게 어떤 마음을 전했나요?</label>
+    <textarea id="dt" oninput="draft.t=this.value" placeholder="몰래 도운 일, 마음 쓴 일, 하려다 못한 일도 괜찮아요."></textarea>
+    <button onclick="addLog()">기록 저장</button>
+  </div>
+  <h2>내가 쓴 기록 (${mine.length})</h2>`;
+  h += mine.length ? mine.slice().reverse().map(l => `<div class="log"><b>${esc(l.d)}</b> <button class="sub sm" onclick="delLog('${l.k}')">삭제</button><br>${esc(l.t)}</div>`).join("") : `<p class="muted">아직 기록이 없어요. 첫 기록을 남겨 보세요.</p>`;
+  if (!revealed) return h + `<p class="muted">마니또 공개 후에 나를 챙겨 준 친구의 기록과 마음을 볼 수 있어요.</p>`;
+  const g = giverOf(me), got = logsOf(g), hearts = Object.entries((S.hearts || {})[me] || {});
+  h += `<h2>마니또 공개!</h2><div class="cookie"><div class="c"></div><div class="f">${esc(g)}<small>나의 마니또였어요</small></div><div class="c b"></div></div>
+  <h2>${esc(g)}가 나에게 남긴 기록 (${got.length})</h2>`;
+  h += got.length ? got.slice().reverse().map(l => `<div class="log"><b>${esc(l.d)}</b><br>${esc(l.t)}</div>`).join("") : `<p class="muted">남겨진 기록이 없어요.</p>`;
+  h += `<h2>마음 남기기</h2><div class="box"><label for="dh">${esc(g)}에게 고마운 마음을 전해요</label>
+  <textarea id="dh" oninput="draft.h=this.value">${esc(((S.hearts || {})[g] || {})[me] || "")}</textarea>
+  <button onclick="sendHeart('${esc(g)}')">마음 보내기</button></div>`;
+  h += `<h2>받은 마음</h2>` + (hearts.length ? hearts.map(([f, t]) => `<div class="heart"><b>${esc(f)}</b><br>${esc(t)}</div>`).join("") : `<p class="muted">아직 받은 마음이 없어요.</p>`);
+  return h;
+}
+
+function addLog() {
+  if (!draft.t.trim()) return alert("내용을 적어 주세요.");
+  R.child("logs/" + me).push({ d: draft.d || today(), t: draft.t.trim() });
+  draft.t = ""; draft.d = today();
+}
+function delLog(k) { if (confirm("이 기록을 삭제할까요?")) R.child(`logs/${me}/${k}`).remove(); }
+function sendHeart(g) {
+  const t = draft.h.trim() || ((S.hearts || {})[g] || {})[me] || "";
+  if (!t) return alert("마음을 적어 주세요.");
+  R.child(`hearts/${g}/${me}`).set(t); draft.h = ""; alert("마음을 보냈어요.");
+}
+
+function teacherView() {
+  const as = A(), has = Object.keys(as).length > 0;
+  let h = `<div class="top"><h1>교사 화면</h1><button class="sub sm" onclick="out()">나가기</button></div>
+  <div class="box"><div class="row">
+    <button onclick="assign()">${has ? "다시 랜덤 배정" : "랜덤 배정 실행"}</button>
+    ${has ? `<button class="sub" onclick="reset()">배정 초기화</button>` : ""}
+    ${has ? `<button class="${S.revealed ? "sub" : "warn"}" onclick="R.child('revealed').set(${!S.revealed})">${S.revealed ? "공개 닫기" : "마니또 공개"}</button>` : ""}
+  </div><p class="muted">현재 상태: ${has ? (S.revealed ? "공개됨" : "배정 완료, 비공개") : "배정 전"}. 다시 배정하면 공개가 닫히고 기존 기록은 그대로 남아요.</p></div>
+  <h2>학생 현황</h2><div class="box" style="overflow-x:auto"><table><tr><th>이름</th><th>마니또 대상</th><th>기록</th><th></th></tr>`;
+  h += NAMES.map(n => {
+    const l = logsOf(n);
+    return `<tr><td>${n}</td><td>${esc(as[n] || "-")}</td><td>${l.length}</td><td><button class="sub sm" onclick="resetPw('${n}')">${(S.pw || {})[n] ? "비번 초기화" : "미설정"}</button></td></tr>
+    ${l.length ? `<tr><td colspan="4"><details><summary>기록 보기</summary>${l.map(x => `<div class="log"><b>${esc(x.d)}</b> ${esc(x.t)}</div>`).join("")}</details></td></tr>` : ""}`;
+  }).join("") + `</table></div>`;
+  return h;
+}
+
+function assign() {
+  if (Object.keys(A()).length && !confirm("이미 배정되어 있어요. 다시 배정할까요?")) return;
+  const o = NAMES.slice();
+  for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+  const a = {}; o.forEach((n, i) => a[n] = o[(i + 1) % o.length]);
+  R.update({ assign: a, revealed: false });
+}
+function reset() { if (confirm("배정을 초기화할까요?")) R.update({ assign: null, revealed: false }); }
+function resetPw(n) { if ((S.pw || {})[n] && confirm(`${n}의 비밀번호를 초기화할까요?`)) R.child("pw/" + n).remove(); }
+</script>
+</body>
+</html>
